@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Class Attendance Pro</title>
+    <style>
+        :root { --primary: #4f46e5; --bg: #f1f5f9; --text: #1e293b; --danger: #ef4444; --warning: #f59e0b; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
+        .wrapper { max-width: 500px; margin: auto; }
+        
+        .header { background: #fff; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { margin: 0 0 10px; font-size: 1.25rem; color: #4682B4; text-align: center; }
+        h3 { font-size: 0.8rem; font-style: italic; color: #64748b; margin: 5px 0; text-align: center; }
+        #datePicker { width: 100%; padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; }
+
+        .stats-info { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #fff; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .student-card { background: white; padding: 12px 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; margin-bottom: 8px; }
+        .not-absent { border-left: 5px solid var(--warning); }
+        
+        .btn-status { padding: 6px 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 700; background: #f1f5f9; margin-left: 3px; }
+        .btn-status:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-h.active { background: #22c55e; color: white; }
+        .btn-a.active { background: #ef4444; color: white; }
+        .btn-s.active { background: #eab308; color: white; }
+        
+        .total-summary { background: #fff; padding: 15px; border-radius: 15px; margin-top: 20px; text-align: center; border: 1px solid #e2e8f0; font-weight: bold; color: #4682B4; }
+        .btn-auth { padding: 8px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+        .btn-reset { background: var(--danger); color: white; padding: 8px 15px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; margin-top: 10px; width: 100%; }
+        .btn-reset:disabled { background: #cbd5e1; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div style="text-align: right; margin-bottom: 10px;" id="authSection">
+        <button class="btn-auth" onclick="login()">Login Bendahara</button>
+    </div>
+
+    <div class="header">
+        <h1>The Famous XI RPL III</h1>
+        <h3>"XI RPL 3 LAHIR KETIKA TUHAN SEDANG TERSENYUM"</h3>
+        <center><input type="date" id="datePicker" onchange="render()"></center>
+    </div>
+
+    <div class="stats-info">
+        <span id="harian-stat">0/30 Hadir</span>
+        <button id="markAllBtn" onclick="markAll()" disabled>Hadirkan Semua</button>
+    </div>
+
+    <div id="list"></div>
+
+    <div id="adminPanel" style="display:none;">
+        <button class="btn-reset" id="resetBtn" onclick="resetDate()">Reset Data Tanggal Ini</button>
+    </div>
+
+    <div class="total-summary" id="global-total">Jumlah Hari Ini: H:0 | A:0 | S:0</div>
+</div>
+
+<script>
+    const students = ["Alsya", "Devinza", "Tina", "Niki", "Salma", "Sulys", "Sani", "Rafa", "Dafa", "Mita", "Renzani", "Adelia", "M.Fahri", "Dika", "Rizkia", "Priana", "Selsi", "Rasyiffa", "Nurul", "Rangga", "Depi", "Cahya", "M.Raffi", "Mulki", "Rifqy", "M.Alfian", "M.Reza", "Arya", "Ruly", "Rafy H"].sort();
+    
+    const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date());
+
+    let isAdmin = false;
+    document.getElementById('datePicker').value = today;
+
+    function login() {
+        const user = prompt("Username:");
+        const pass = prompt("Sandi:");
+        if (user === "Bendahara" && pass === "FamousXIRPL3-F") {
+            isAdmin = true;
+            updateAuthUI();
+        } else {
+            alert("Akses ditolak!");
+        }
+    }
+
+    function logout() {
+        isAdmin = false;
+        updateAuthUI();
+    }
+
+    function updateAuthUI() {
+        const authSection = document.getElementById('authSection');
+        const adminPanel = document.getElementById('adminPanel');
+        if(isAdmin) {
+            authSection.innerHTML = `<button class="btn-auth" style="background:var(--danger); color:white" onclick="logout()">Logout</button>`;
+            adminPanel.style.display = 'block';
+        } else {
+            authSection.innerHTML = `<button class="btn-auth" onclick="login()">Login Bendahara</button>`;
+            adminPanel.style.display = 'none';
+        }
+        render();
+    }
+
+    function render() {
+        const list = document.getElementById('list');
+        const curDate = document.getElementById('datePicker').value;
+        const isToday = (curDate === today);
+        const isLocked = !isToday || !isAdmin;
+        
+        // Update tombol kontrol
+        document.getElementById('markAllBtn').disabled = !isToday || !isAdmin;
+        document.getElementById('resetBtn').disabled = !isToday || !isAdmin;
+
+        list.innerHTML = '';
+        let dayH = 0, dayA = 0, dayS = 0;
+        
+        students.forEach(name => {
+            const status = localStorage.getItem(name + '_' + curDate) || '';
+            if(status === 'H') dayH++; else if(status === 'A') dayA++; else if(status === 'S') dayS++;
+            
+            const card = document.createElement('div');
+            card.className = `student-card ${!status && isToday ? 'not-absent' : ''}`;
+            card.innerHTML = `
+                <strong>${name} ${!status && isToday ? '' : ''}</strong>
+                <div class="btn-group">
+                    <button class="btn-status btn-h ${status=='H'?'active':''}" ${isLocked?'disabled':''} onclick="mark(this, 'H')">H</button>
+                    <button class="btn-status btn-a ${status=='A'?'active':''}" ${isLocked?'disabled':''} onclick="mark(this, 'A')">A</button>
+                    <button class="btn-status btn-s ${status=='S'?'active':''}" ${isLocked?'disabled':''} onclick="mark(this, 'S')">S</button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+        document.getElementById('harian-stat').innerText = `${dayH}/${students.length} Hadir`;
+        document.getElementById('global-total').innerText = `Jumlah Hari Ini: H:${dayH} | A:${dayA} | S:${dayS}`;
+    }
+
+    function mark(btn, status) {
+        if(!isAdmin) return;
+        const name = btn.parentElement.parentElement.querySelector('strong').innerText.split(' ')[0];
+        localStorage.setItem(name + '_' + document.getElementById('datePicker').value, status);
+        render();
+    }
+
+    function markAll() {
+        if(!isAdmin) return;
+        students.forEach(n => localStorage.setItem(n + '_' + document.getElementById('datePicker').value, 'H'));
+        render();
+    }
+
+    function resetDate() {
+        if(!isAdmin) return;
+        if(confirm("Yakin ingin mereset seluruh absensi untuk tanggal ini?")) {
+            const date = document.getElementById('datePicker').value;
+            students.forEach(n => localStorage.removeItem(n + '_' + date));
+            render();
+        }
+    }
+
+    render();
+</script>
+</body>
+</html>
